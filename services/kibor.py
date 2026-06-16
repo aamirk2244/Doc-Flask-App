@@ -50,6 +50,25 @@ def log(msg: str) -> None:
     _scraper_state["log"].append(msg)
 
 
+def file_for_month_exists(year: int, month: int):
+    """Return an existing PDF filename for the given year/month, or None.
+
+    This uses heuristics (year, year-month, month name, 'kibor-YYYY-M') to
+    avoid hitting the network when a likely filename is already present.
+    """
+    SAVE_DIR.mkdir(parents=True, exist_ok=True)
+    mon_abbr = month_name(month).lower()
+    mon_full = datetime(2000, month, 1).strftime("%B").lower()
+    y = str(year)
+    pats = [y, f"{year}-{month}", f"{year}-{month:02d}", mon_abbr, mon_full, f"kibor-{year}-{month}"]
+    for p in SAVE_DIR.glob("*.pdf"):
+        nm = p.name.lower()
+        for pat in pats:
+            if pat in nm:
+                return p.name
+    return None
+
+
 def download_pdf(url: str, dest_path: Path, session: requests.Session) -> bool:
     try:
         resp = session.get(url, timeout=30, stream=True)
@@ -90,6 +109,12 @@ async def _scrape_async() -> None:
         for year, month in periods:
             yr_str, mon_str = str(year), month_name(month)
             log(f"\n── {mon_str} {yr_str} ─────────────────────────")
+
+            # Fast-path: if a likely file for this month already exists, skip network/page work
+            existing = file_for_month_exists(year, month)
+            if existing:
+                log(f"  ⏭  Already downloaded ({existing}) — skipping without network.")
+                continue
 
             # Select year
             try:
@@ -192,6 +217,11 @@ async def _download_top_for_async(year: int, month: int) -> dict:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     )
+
+    # Fast-path: skip if file already present
+    existing = file_for_month_exists(year, month)
+    if existing:
+        return {"ok": True, "skipped": True, "saved": existing, "pdf_url": None}
 
     try:
         from playwright.async_api import async_playwright
@@ -300,6 +330,11 @@ def _download_top_for_requests(year: int, month: int) -> dict:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
     )
+
+    # Fast-path: skip if file already present
+    existing = file_for_month_exists(year, month)
+    if existing:
+        return {"ok": True, "skipped": True, "saved": existing, "pdf_url": None}
 
     try:
         resp = session.get(BASE_URL, timeout=20)

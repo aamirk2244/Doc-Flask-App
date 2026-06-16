@@ -123,14 +123,39 @@ AppUI.initAutoDismiss();
           var pollId = null;
           var container = document.getElementById('kiborResult');
           container.innerHTML = '<div class="text-muted">Scraper started — waiting for progress...</div>';
+          function renderLogLines(containerEl, lines){
+            containerEl.innerHTML = '';
+            if(!lines || !lines.length){
+              containerEl.innerHTML = '<div class="text-muted">No logs yet.</div>';
+              return;
+            }
+            var list = document.createElement('div');
+            list.className = 'list-group';
+            lines.forEach(function(line){
+              var item = document.createElement('div');
+              item.className = 'list-group-item py-1';
+              var text = document.createElement('div');
+              text.textContent = line;
+              // simple heuristics for styling
+              if(/\u2713|Saved|Done|Already downloaded/i.test(line)){
+                item.classList.add('text-success');
+              } else if(/\u2717|Failed|Error|failed|✗/i.test(line)){
+                item.classList.add('text-danger');
+              } else if(/skip|Already downloaded|skipping/i.test(line)){
+                item.classList.add('text-muted');
+              }
+              item.appendChild(text);
+              list.appendChild(item);
+            });
+            containerEl.appendChild(list);
+            // auto-scroll to bottom
+            containerEl.scrollTop = containerEl.scrollHeight;
+          }
+
           function poll(){
             fetch('/scrape/status').then(function(r){ return r.json(); }).then(function(s){
-              container.innerHTML = '';
-              if(s && s.log && s.log.length){
-                var pre = document.createElement('pre');
-                pre.style.whiteSpace = 'pre-wrap';
-                pre.textContent = s.log.join('\n');
-                container.appendChild(pre);
+              if(s && s.log){
+                renderLogLines(container, s.log);
               } else {
                 container.innerHTML = '<div class="text-muted">No logs yet.</div>';
               }
@@ -141,11 +166,26 @@ AppUI.initAutoDismiss();
                 if(spinner) spinner.style.display = 'none';
                 btn.disabled = false;
                 fetch('/scrape/files').then(function(r){ return r.json(); }).then(function(f){
-                  if(f && f.count >= 0){
+                  if(f && typeof f.count === 'number'){
                     var info = document.createElement('div');
                     info.className = 'mt-2';
-                    info.innerHTML = '<strong>Done.</strong> PDFs downloaded: ' + f.count;
+                    info.innerHTML = '<strong>Done.</strong> PDFs found: ' + f.count;
                     container.appendChild(info);
+
+                    if(f.files && f.files.length){
+                      var filesList = document.createElement('ul');
+                      filesList.className = 'list-unstyled small mt-2';
+                      f.files.forEach(function(fname){
+                        var li = document.createElement('li');
+                        var a = document.createElement('a');
+                        a.href = '/static/data/kibor_files/' + encodeURIComponent(fname);
+                        a.target = '_blank';
+                        a.textContent = fname;
+                        li.appendChild(a);
+                        filesList.appendChild(li);
+                      });
+                      container.appendChild(filesList);
+                    }
                   }
                 }).catch(function(){ /* ignore */ });
               }
