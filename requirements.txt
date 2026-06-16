@@ -1,3 +1,6 @@
 Flask>=2.0
 pandas>=1.0
 openpyxl
+requests
+pdfplumber
+beautifulsoup4

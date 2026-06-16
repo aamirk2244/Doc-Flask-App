@@ -3,8 +3,9 @@ from io import BytesIO
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, current_app
 import pandas as pd
 
-from services import allowed_file, find_latest_upload, load_dataframe, compare_data, ensure_dirs
+from services import allowed_file, find_latest_upload, load_dataframe, compare_data, ensure_dirs, download_top_for
 from settings import INITIAL_DIR
+from flask import jsonify
 
 bp = Blueprint('main', __name__)
 
@@ -202,6 +203,59 @@ def download_results():
     pd.DataFrame(rows).to_csv(buffer, index=False)
     buffer.seek(0)
     return send_file(buffer, mimetype='text/csv', as_attachment=True, download_name='comparison_results.csv')
+
+
+
+# Playwright-backed scraper endpoints
+@bp.route('/scrape', methods=['POST'])
+def start_scrape():
+    try:
+        res = playwright_kibor.start_scrape()
+        if res.get('status') == 'started':
+            return jsonify({'ok': True, 'status': 'started'}), 202
+        else:
+            return jsonify({'ok': False, 'status': res.get('status')}), 409
+    except Exception as e:
+        current_app.logger.exception('Error starting scraper')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@bp.route('/scrape/status', methods=['GET'])
+def scrape_status():
+    try:
+        return jsonify(playwright_kibor.scrape_status())
+    except Exception as e:
+        current_app.logger.exception('Error getting scraper status')
+        return jsonify({'running': False, 'error': str(e), 'log': []}), 500
+
+
+@bp.route('/scrape/files', methods=['GET'])
+def scrape_files():
+    try:
+        files = playwright_kibor.list_files()
+        return jsonify({'count': len(files), 'files': files})
+    except Exception as e:
+        current_app.logger.exception('Error listing scraper files')
+        return jsonify({'count': 0, 'files': [], 'error': str(e)}), 500
+
+
+# API endpoint to fetch KIBOR rates
+@bp.route('/fetch-kibor', methods=['POST'])
+def fetch_kibor():
+    try:
+        current_app.logger.info('Starting KIBOR PDF downloads')
+        # For now, download only the top PDF for January 2025
+        res = download_top_for(2025, 1)
+        print("**************** ")
+        print(res)
+        if res.get('ok'):
+            return jsonify({'ok': True, 'result': res})
+        else:
+            return jsonify({'ok': False, 'error': res.get('error')}), 500
+    except Exception as e:
+        current_app.logger.exception('Error fetching KIBOR')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
 
 
 def register_routes(app):
