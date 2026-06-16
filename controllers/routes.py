@@ -166,10 +166,14 @@ def compare():
     if rows:
         pd.DataFrame(rows).to_csv(csv_buffer, index=False)
         csv_buffer.seek(0)
+        csv_ready = True
     else:
         csv_buffer = None
+        csv_ready = False
 
-    return render_template('results.html', results=results, csv_ready=(csv_buffer is not None))
+    issues_count = len(rows)
+
+    return render_template('results.html', results=results, csv_ready=csv_ready, issues_count=issues_count)
 
 
 @bp.route('/download_results')

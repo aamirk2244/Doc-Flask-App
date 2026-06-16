@@ -7,71 +7,97 @@
   </div>
 
   <div class="row g-4">
-    <div class="col-md-6">
+    <div class="col-md-4">
       <div class="card">
         <div class="card-body">
-          <h5 class="card-title">Initial Reference</h5>
-          <p class="card-text text-muted">Upload a reference file that will be used for all future comparisons until replaced.</p>
-
-          <form action="/upload_initial" method="post" enctype="multipart/form-data" class="mb-3">
-            <div class="input-group">
-              <input class="form-control" type="file" name="file" accept=".csv,.xls,.xlsx" required>
-              <button class="btn btn-primary" data-loading-text="Uploading..." type="submit">Upload</button>
-            </div>
-          </form>
-
-          {% if initial_exists %}
-            <div class="d-flex align-items-center">
-              <div>
-                <div><strong>{{ initial_filename }}</strong></div>
-                {% if initial_mtime %}
-                  <small class="text-muted">Uploaded: {{ initial_mtime }}</small>
-                {% endif %}
-              </div>
-                <div class="ms-auto">
-                <a class="btn btn-sm btn-outline-secondary me-2" href="/view_initial" aria-label="Download initial file">Download {{ initial_filename }}</a>
-                <form action="/remove_initial" method="post" class="d-inline">
-                  <button class="btn btn-sm btn-danger" type="submit" data-confirm="Are you sure you want to remove the initial reference file? This action cannot be undone.">Remove</button>
-                </form>
-              </div>
-            </div>
-          {% else %}
-            <div class="mt-2 text-muted">No initial reference uploaded yet.</div>
-          {% endif %}
+          <h5 class="card-title">Actions</h5>
+          <p class="card-text text-muted">Choose an action to perform.</p>
+          <div class="list-group" id="actionList">
+            <button type="button" class="list-group-item list-group-item-action active" data-target="panel-compare">Document Comparison</button>
+            <button type="button" class="list-group-item list-group-item-action" data-target="panel-kibor">Fetch KIBOR Rate</button>
+          </div>
+          <small class="text-muted d-block mt-2">Select an action to show the related functionality on the right.</small>
         </div>
       </div>
     </div>
 
-    <div class="col-md-6">
-      <div class="card">
-        <div class="card-body">
-          <h5 class="card-title">Compare New File</h5>
-          <p class="card-text text-muted">Upload a file to compare against the stored reference. The comparison runs immediately after upload.</p>
+    <div class="col-md-8">
+      <div id="panel-compare" class="action-panel">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Compare New File</h5>
+            <p class="card-text text-muted">Upload a file to compare against the stored reference. The comparison runs immediately after upload.</p>
 
-          <form action="/upload_new" method="post" enctype="multipart/form-data">
-            <div class="input-group mb-3">
-              <input class="form-control" type="file" name="file" accept=".csv,.xls,.xlsx" required>
-              <button class="btn btn-success" data-loading-text="Uploading..." type="submit">Upload & Compare</button>
+            <form action="/upload_new" method="post" enctype="multipart/form-data">
+              <div class="input-group mb-3">
+                <input class="form-control" type="file" name="file" accept=".csv,.xls,.xlsx" required>
+                <button class="btn btn-success" data-loading-text="Uploading..." type="submit">Upload & Compare</button>
+              </div>
+            </form>
+
+            <div>
+              {% if new_exists %}
+                <div class="d-flex align-items-center mb-2">
+                  <div>
+                    <div><strong>{{ new_filename }}</strong></div>
+                    {% if new_mtime %}
+                      <small class="text-muted">Uploaded: {{ new_mtime }}</small>
+                    {% endif %}
+                  </div>
+                </div>
+              {% else %}
+                <div class="mt-2 text-muted">No comparison file uploaded yet.</div>
+              {% endif %}
+
+              <form action="/compare" method="get" class="d-inline">
+                <button class="btn btn-outline-secondary" type="submit" {% if not (initial_exists and new_exists) %}disabled{% endif %}>Compare Existing File</button>
+              </form>
             </div>
-          </form>
+          </div>
+        </div>
 
-          <div>
-            {% if new_exists %}
-              <div class="d-flex align-items-center mb-2">
+        <div class="card mt-3">
+          <div class="card-body">
+            <h5 class="card-title">Initial Reference</h5>
+            <p class="card-text text-muted">Upload a reference file that will be used for all future comparisons until replaced.</p>
+
+            <form action="/upload_initial" method="post" enctype="multipart/form-data" class="mb-3">
+              <div class="input-group">
+                <input class="form-control" type="file" name="file" accept=".csv,.xls,.xlsx" required>
+                <button class="btn btn-primary" data-loading-text="Uploading..." type="submit">Upload</button>
+              </div>
+            </form>
+
+            {% if initial_exists %}
+              <div class="d-flex align-items-center">
                 <div>
-                  <div><strong>{{ new_filename }}</strong></div>
-                  {% if new_mtime %}
-                    <small class="text-muted">Uploaded: {{ new_mtime }}</small>
+                  <div><strong>{{ initial_filename }}</strong></div>
+                  {% if initial_mtime %}
+                    <small class="text-muted">Uploaded: {{ initial_mtime }}</small>
                   {% endif %}
+                </div>
+                  <div class="ms-auto">
+                  <a class="btn btn-sm btn-outline-secondary me-2" href="/view_initial" aria-label="Download initial file">Download {{ initial_filename }}</a>
+                  <form action="/remove_initial" method="post" class="d-inline">
+                    <button class="btn btn-sm btn-danger" type="submit" data-confirm="Are you sure you want to remove the initial reference file? This action cannot be undone.">Remove</button>
+                  </form>
                 </div>
               </div>
             {% else %}
-              <div class="mt-2 text-muted">No comparison file uploaded yet.</div>
+              <div class="mt-2 text-muted">No initial reference uploaded yet.</div>
             {% endif %}
+          </div>
+        </div>
+      </div>
 
-            <form action="/compare" method="get" class="d-inline">
-              <button class="btn btn-outline-secondary" type="submit" {% if not (initial_exists and new_exists) %}disabled{% endif %}>Compare Existing File</button>
-            </form>
+      <div id="panel-kibor" class="action-panel" style="display:none;">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Fetch KIBOR</h5>
+            <p class="card-text text-muted">Fetch latest KIBOR rate from the configured source.</p>
+            <div id="kiborResult">
+              <p class="text-muted">No KIBOR data fetched yet.</p>
+            </div>
           </div>
         </div>
       </div>

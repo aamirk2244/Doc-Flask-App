@@ -38,3 +38,33 @@ var AppUI = (function(){
 
 // initialize auto-dismiss with default 4s
 AppUI.initAutoDismiss();
+
+// Action panel switching
+(function(){
+  function showPanel(id){
+    document.querySelectorAll('.action-panel').forEach(function(p){ p.style.display = 'none'; });
+    var el = document.getElementById(id);
+    if(el) el.style.display = '';
+  }
+
+  function initActionList(){
+    var list = document.getElementById('actionList');
+    if (!list) return;
+    list.querySelectorAll('[data-target]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        // mark active
+        list.querySelectorAll('.list-group-item').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        var target = btn.getAttribute('data-target');
+        showPanel(target);
+      });
+    });
+    // show default
+    var active = list.querySelector('.list-group-item.active');
+    if (active) showPanel(active.getAttribute('data-target'));
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initActionList);
+  } else { initActionList(); }
+})();
