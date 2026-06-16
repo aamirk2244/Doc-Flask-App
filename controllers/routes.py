@@ -3,7 +3,17 @@ from io import BytesIO
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file, current_app
 import pandas as pd
 
-from services import allowed_file, find_latest_upload, load_dataframe, compare_data, ensure_dirs, download_top_for
+from services import (
+    allowed_file,
+    find_latest_upload,
+    load_dataframe,
+    compare_data,
+    ensure_dirs,
+    download_top_for,
+    start_scrape,
+    scrape_status,
+    list_files,
+)
 from settings import INITIAL_DIR
 from flask import jsonify
 
@@ -206,11 +216,10 @@ def download_results():
 
 
 
-# Playwright-backed scraper endpoints
 @bp.route('/scrape', methods=['POST'])
-def start_scrape():
+def start_scrape_route():
     try:
-        res = playwright_kibor.start_scrape()
+        res = start_scrape()
         if res.get('status') == 'started':
             return jsonify({'ok': True, 'status': 'started'}), 202
         else:
@@ -221,18 +230,18 @@ def start_scrape():
 
 
 @bp.route('/scrape/status', methods=['GET'])
-def scrape_status():
+def scrape_status_route():
     try:
-        return jsonify(playwright_kibor.scrape_status())
+        return jsonify(scrape_status())
     except Exception as e:
         current_app.logger.exception('Error getting scraper status')
         return jsonify({'running': False, 'error': str(e), 'log': []}), 500
 
 
 @bp.route('/scrape/files', methods=['GET'])
-def scrape_files():
+def scrape_files_route():
     try:
-        files = playwright_kibor.list_files()
+        files = list_files()
         return jsonify({'count': len(files), 'files': files})
     except Exception as e:
         current_app.logger.exception('Error listing scraper files')
@@ -244,14 +253,12 @@ def scrape_files():
 def fetch_kibor():
     try:
         current_app.logger.info('Starting KIBOR PDF downloads')
-        # For now, download only the top PDF for January 2025
-        res = download_top_for(2025, 1)
-        print("**************** ")
-        print(res)
-        if res.get('ok'):
-            return jsonify({'ok': True, 'result': res})
+        # Start full downloader in background (skips months that already exist)
+        res = start_scrape()
+        if res.get('status') == 'started':
+            return jsonify({'ok': True, 'status': 'started'}), 202
         else:
-            return jsonify({'ok': False, 'error': res.get('error')}), 500
+            return jsonify({'ok': False, 'status': res.get('status')}), 409
     except Exception as e:
         current_app.logger.exception('Error fetching KIBOR')
         return jsonify({'ok': False, 'error': str(e)}), 500

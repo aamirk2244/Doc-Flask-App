@@ -108,22 +108,63 @@ AppUI.initAutoDismiss();
       ev.preventDefault();
       btn.disabled = true;
       if(spinner) spinner.style.display = '';
+      // start scraper (background)
       fetch('/fetch-kibor', { method: 'POST', headers: {'Accept':'application/json'} })
         .then(function(res){ return res.json(); })
         .then(function(data){
-          if(spinner) spinner.style.display = 'none';
-          btn.disabled = false;
-          if(data && data.ok){
-            renderResults(data);
-          } else {
+          if(!data || !data.ok){
+            if(spinner) spinner.style.display = 'none';
+            btn.disabled = false;
             var container = document.getElementById('kiborResult');
-            container.innerHTML = '<div class="text-danger">Error fetching KIBOR: ' + (data && data.error ? data.error : 'unknown') + '</div>';
+            container.innerHTML = '<div class="text-danger">Error starting scraper: ' + (data && data.error ? data.error : 'unknown') + '</div>';
+            return;
           }
+          // poll status
+          var pollId = null;
+          var container = document.getElementById('kiborResult');
+          container.innerHTML = '<div class="text-muted">Scraper started — waiting for progress...</div>';
+          function poll(){
+            fetch('/scrape/status').then(function(r){ return r.json(); }).then(function(s){
+              container.innerHTML = '';
+              if(s && s.log && s.log.length){
+                var pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.textContent = s.log.join('\n');
+                container.appendChild(pre);
+              } else {
+                container.innerHTML = '<div class="text-muted">No logs yet.</div>';
+              }
+
+              if(!s.running){
+                // finished — stop polling and fetch files
+                if(pollId) clearInterval(pollId);
+                if(spinner) spinner.style.display = 'none';
+                btn.disabled = false;
+                fetch('/scrape/files').then(function(r){ return r.json(); }).then(function(f){
+                  if(f && f.count >= 0){
+                    var info = document.createElement('div');
+                    info.className = 'mt-2';
+                    info.innerHTML = '<strong>Done.</strong> PDFs downloaded: ' + f.count;
+                    container.appendChild(info);
+                  }
+                }).catch(function(){ /* ignore */ });
+              }
+            }).catch(function(){
+              // network error — stop polling
+              if(pollId) clearInterval(pollId);
+              if(spinner) spinner.style.display = 'none';
+              btn.disabled = false;
+              container.innerHTML = '<div class="text-danger">Error polling scraper status.</div>';
+            });
+          }
+          // start immediate poll and interval
+          poll();
+          pollId = setInterval(poll, 2500);
         }).catch(function(err){
           if(spinner) spinner.style.display = 'none';
           btn.disabled = false;
           var container = document.getElementById('kiborResult');
-          container.innerHTML = '<div class="text-danger">Error fetching KIBOR.</div>';
+          container.innerHTML = '<div class="text-danger">Error starting scraper.</div>';
         });
     });
   }
